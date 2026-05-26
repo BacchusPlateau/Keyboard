@@ -12,6 +12,7 @@ character   = $80       ; CONSTANT: character = $80 (zero page address we use as
 ch          = $2FC      ; CONSTANT: ch = $2FC (OS last key pressed register)
 atachr      = $2FB      ; CONSTANT: atachr = $2FB (OS ATASCII value of last key pressed)
 no_key      = $FF           ; value in ch when no key is pressed
+doubled = $81           ; CONSTANT: temporary storage for doubling
 
         org $2000       ; place the following code at memory address $2000
 
@@ -49,10 +50,16 @@ find_key:
         jmp stop                    ; we didn't find a match after looping through all of the values.  stop
 
 found:
-        txa
-        clc
-        adc #offset_to_char
-        jsr putchar
+        txa                         ; a = x
+        sta doubled                 ; STORE a in memory location 'doubled': memory[doubled] = a
+        clc                         ; clear the carry flag
+        adc doubled                 ; add the value in memory location 'doubled' to a: a = a + memory[doubled]
+                                    ; (no # = read from memory address)
+        adc #offset_to_char         ; a = a + $30
+                                    ; (# so we use the literal value)
+        jsr putchar                 ; print a
+
+
 
 stop:
         jmp stop        ; GOTO stop                   (infinite loop = program halts here)
