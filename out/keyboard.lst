@@ -1,0 +1,91 @@
+mads 2.1.5 build 3 (21 Feb 22)
+Source: keyboard.asm
+     1
+     2 = 0346			putchar_ptr = $346      ; CONSTANT: putchar_ptr = $346 (OS character output vector address)
+     3 = 02F0			csrhinh     = $2F0      ; CONSTANT: csrhinh = $2F0 (OS cursor visible/hidden control address)
+     4 = 0054			rowcrs      = $54       ; CONSTANT: rowcrs = $54 (OS zero page address that controls cursor row)
+     5 = 0055			colcrs      = $55       ; CONSTANT: colcrs = $55 (OS zero page address that controls cursor column)
+     6 = 0020			space       = $20       ; ATASCII space is at hex 20 or $20
+     7 = 0030			offset_to_char = $30    ; Offset from integer literal to ATASCII character equivalent of the number
+     8 = 0080			character   = $80       ; CONSTANT: character = $80 (zero page address we use as loop index)
+     9 = 02FC			ch          = $2FC      ; CONSTANT: ch = $2FC (OS last key pressed register)
+    10 = 02FB			atachr      = $2FB      ; CONSTANT: atachr = $2FB (OS ATASCII value of last key pressed)
+    11 = 00FF			no_key      = $FF           ; value in ch when no key is pressed
+    12
+    13 				        org $2000       ; place the following code at memory address $2000
+    14
+    15
+    16 				        .proc main      ; declare procedure named "main", begin its scope
+    17
+    18 FFFF> 2000-2066> A9 01 +         mva #1 csrhinh  ; memory[752] = 1             (hide the cursor)
+    19 2005 A9 06 85 54		        mva #6 rowcrs   ; memory[$54] = 6             (position cursor at row 6)
+    20 2009 A9 0A 85 55		        mva #10 colcrs  ; memory[$55] = 10            (position cursor at column 10)
+    21 200D A9 00 85 80		        mva #0 character    ; memory[$80] = 0    (initialize loop index to 0)
+    22
+    23 				; Print out the prompt
+    24 2011			next_character:         ; next_character:              (loop entry point)
+    25 2011 A6 80		        ldx character   ; X = memory[$80]             (load current loop index into X)
+    26 2013 E0 10		        cpx #.len text  ; compare X to length of text (are we done yet?)
+    27 2015 F0 0B		        beq wait_for_keypress        ; if X == length then GOTO wait_for_keypress to get keyboard input
+    28 2017 BD 4D 20		        lda text,x      ; A = memory[text + X]        (load character at position X from text)
+    29 201A 20 42 20		        jsr putchar     ; CALL putchar                (putchar expects character value in A)
+    30 201D E6 80		        inc character   ; memory[$80] = memory[$80]+1 (advance loop index to next character)
+    31 201F 4C 11 20		        jmp next_character ; GOTO next_character      (go back and print next character)
+    32
+    33 				; Wait for a key to be pressed
+    34 2022			wait_for_keypress:
+    35 2022 AD FC 02		        lda ch                      ; a = $2FC
+    36 2025 C9 FF		        cmp #no_key                 ; test if a == $ff.  NOTE the # symbol denotes the following is a literal not an address
+    37 2027 F0 F9		        beq wait_for_keypress       ; if not, loop back and try again
+    38 				        
+    39 2029 A2 00		        ldx #0                      ; init x=0
+    40 202B			find_key:
+    41 202B DD 5D 20		        cmp keytable,x
+    42 202E F0 08		        beq found
+    43 2030 E8			        inx
+    44 2031 E0 0A		        cpx #10
+    45 2033 D0 F6		        bne find_key
+    46 2035 4C 3F 20		        jmp stop
+    47
+    48 2038			found:
+    49 2038 8A			        txa
+    50 2039 18			        clc
+    51 203A 69 30		        adc #offset_to_char
+    52 203C 20 42 20		        jsr putchar
+    53
+    54 203F			stop:
+    55 203F 4C 3F 20		        jmp stop        ; GOTO stop                   (infinite loop = program halts here)
+    56
+    57 				; =====================================================================
+    58 				; PUTCHAR SUBROUTINE
+    59 				; prints the character whose ATASCII value is in the A register
+    60 				; by jumping to the OS print routine via stack manipulation
+    61 				; ON ENTRY: A must contain the ATASCII value of the character to print
+    62 				; ON EXIT:  A is preserved, character has been printed to screen
+    63 				; =====================================================================
+    64
+    65 2042			        .proc putchar
+    66 2042 AA			        tax             ; X = A                       (save character from A into X because A is about to be clobbered)
+    67 2043 AD 47 03		        lda putchar_ptr+1 ; A = memory[$347]          (load high byte of OS print routine address)
+    68 2046 48			        pha             ; push A onto stack            (high byte on stack, will be popped second by rts)
+    69 2047 AD 46 03		        lda putchar_ptr ; A = memory[$346]            (load low byte of OS print routine address)
+    70 204A 48			        pha             ; push A onto stack            (low byte on stack, will be popped first by rts)
+    71 204B 8A			        txa             ; A = X                       (restore original character back into A because OS print routine expects character value in A)
+    72 204C 60			        rts             ; RETURN                      (pops OS address from stack and jumps there, OS prints character in A, then returns to main)
+    73 				        .endp           ; end of putchar procedure
+    74
+    75 204D			        .local text     ; declare local data block named "text"
+    76 204D 45 4E 54 45 52 20 +         .byte 'ENTER A NUMBER: ' ; raw ATASCII bytes for each character in the string
+    77 				        .endl           ; end of text data block
+    78
+    79 205D			        .local keytable
+    80 205D 32 1F 1E 1A 18 1D +         .byte $32,$1F,$1E,$1A,$18,$1D,$1B,$33,$35,$30
+    81 				        .endl
+    82
+    83 				        .endp           ; end of main procedure
+    84
+    85 				; =====================================================================
+    86 				; ENTRY POINT
+    87 				; =====================================================================
+    88
+    89 02E0-02E1> 00 20		        run main        ; set Atari run address to main (auto-execute when program loads)
