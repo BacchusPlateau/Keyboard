@@ -59,13 +59,22 @@ found:
         clc                             ; clear carry                                       
         adc #offset_to_char             ; convert to ATASCII by adding $30
         jsr putchar                     ; print the number pressed
-        mva #6 rowcrs                   ; memory[$54] = 6             (position cursor at row 6)
-        mva #11 colcrs                  ; memory[$55] = 11            (position cursor at column 11)
+        mva #7 rowcrs                   ; memory[$54] = 6             (position cursor at row 6)
+        mva #10 colcrs                  ; memory[$55] = 11            (position cursor at column 11)
 
 ; write the text label for the doubled value
+        mva #0 character                ; reset our loop counter
+next_label_ch:
+        ldx character                   ; X = memory[$80]             (load current loop index into X)
+        cpx #.len outputlabel           ; compare X to length of outputlabel (are we done yet?)
+        beq double_the_value            ; if X == length then GOTO wait_for_keypress to get keyboard input
+        lda outputlabel,x               ; A = memory[outputlabel + X]        (load character at position X from text)
+        jsr putchar                     ; CALL putchar                (putchar expects character value in A)
+        inc character                   ; memory[$80] = memory[$80]+1 (advance loop index to next character)
+        jmp next_label_ch               ; GOTO next_label_ch      (go back and print next character)
 
-        jmp stop
-        
+double_the_value:
+        lda value
         sta doubled                     ; STORE a in memory location 'doubled': memory[doubled] = a
         clc                             ; clear the carry flag
         adc doubled                     ; add the value in memory location 'doubled' to a: a = a + memory[doubled]
@@ -73,8 +82,6 @@ found:
         adc #offset_to_char             ; a = a + $30
                                         ; (# so we use the literal value)
         jsr putchar                     ; print a
-
-
 
 stop:
         jmp stop        ; GOTO stop                   (infinite loop = program halts here)
@@ -108,7 +115,7 @@ stop:
         .local outputlabel
         .byte 'DOUBLED VALUE: '
         .endl
-        
+
         .endp           ; end of main procedure
 
 ; =====================================================================
