@@ -23,7 +23,7 @@ Source: keyboard.asm
     21
     22 				        .proc main                      ; declare procedure named "main", begin its scope
     23
-    24 FFFF> 2000-20A0> A9 01 +         mva #1 csrhinh                  ; memory[752] = 1             (hide the cursor)
+    24 FFFF> 2000-20C3> A9 01 +         mva #1 csrhinh                  ; memory[752] = 1             (hide the cursor)
     25 2005 A9 06 85 54		        mva #6 rowcrs                   ; memory[$54] = 6             (position cursor at row 6)
     26 2009 A9 0A 85 55		        mva #10 colcrs                  ; memory[$55] = 10            (position cursor at column 10)
     27 200D A9 00 85 80		        mva #0 character                ; memory[$80] = 0    (initialize loop index to 0)
@@ -31,10 +31,10 @@ Source: keyboard.asm
     29 				; Print out the prompt
     30 2011			next_character:                         ; next_character:              (loop entry point)
     31 2011 A6 80		        ldx character                   ; X = memory[$80]             (load current loop index into X)
-    32 2013 E0 10		        cpx #.len text                  ; compare X to length of text (are we done yet?)
+    32 2013 E0 16		        cpx #.len text                  ; compare X to length of text (are we done yet?)
     33 2015 F0 0B		        beq wait_for_keypress           ; if X == length then GOTO wait_for_keypress to get keyboard input
-    34 2017 BD 78 20		        lda text,x                      ; A = memory[text + X]        (load character at position X from text)
-    35 201A 20 6D 20		        jsr putchar                     ; CALL putchar                (putchar expects character value in A)
+    34 2017 BD 95 20		        lda text,x                      ; A = memory[text + X]        (load character at position X from text)
+    35 201A 20 8A 20		        jsr putchar                     ; CALL putchar                (putchar expects character value in A)
     36 201D E6 80		        inc character                   ; memory[$80] = memory[$80]+1 (advance loop index to next character)
     37 201F 4C 11 20		        jmp next_character              ; GOTO next_character      (go back and print next character)
     38
@@ -47,12 +47,12 @@ Source: keyboard.asm
     45 				; Loop through keytable data and try to find a match on the keyboard scancode
     46 2029 A2 00		        ldx #0                          ; init x=0
     47 202B			find_key:
-    48 202B DD 88 20		        cmp keytable,x                  ; compare what is in a to keytable[x], does a = keytable[x]
+    48 202B DD AB 20		        cmp keytable,x                  ; compare what is in a to keytable[x], does a = keytable[x]
     49 202E F0 08		        beq found                       ; if equal, GOTO found
     50 2030 E8			        inx                             ; increment x:  x = x + 1
     51 2031 E0 0A		        cpx #10                         ; compare if x = 10
     52 2033 D0 F6		        bne find_key                    ; if it does not, loop again
-    53 2035 4C 6A 20		        jmp stop                        ; we didn't find a match after looping through all of the values.  stop
+    53 2035 4C 87 20		        jmp stop                        ; we didn't find a match after looping through all of the values.  stop
     54
     55 				; echo the number pressed back to the screen
     56 2038			found:
@@ -60,9 +60,9 @@ Source: keyboard.asm
     58 2039 85 82		        sta value                       ; memory[value] = a
     59 203B 18			        clc                             ; clear carry                                       
     60 203C 69 30		        adc #offset_to_char             ; convert to ATASCII by adding $30
-    61 203E 20 6D 20		        jsr putchar                     ; print the number pressed
-    62 2041 A9 07 85 54		        mva #7 rowcrs                   ; memory[$54] = 6             (position cursor at row 6)
-    63 2045 A9 0A 85 55		        mva #10 colcrs                  ; memory[$55] = 11            (position cursor at column 11)
+    61 203E 20 8A 20		        jsr putchar                     ; print the number pressed
+    62 2041 A9 07 85 54		        mva #7 rowcrs                   ; memory[$54] = 6             (position cursor at row 7)
+    63 2045 A9 0A 85 55		        mva #10 colcrs                  ; memory[$55] = 11            (position cursor at column 10)
     64
     65 				; write the text label for the doubled value
     66 2049 A9 00 85 80		        mva #0 character                ; reset our loop counter
@@ -70,58 +70,83 @@ Source: keyboard.asm
     68 204D A6 80		        ldx character                   ; X = memory[$80]             (load current loop index into X)
     69 204F E0 0F		        cpx #.len outputlabel           ; compare X to length of outputlabel (are we done yet?)
     70 2051 F0 0B		        beq double_the_value            ; if X == length then GOTO wait_for_keypress to get keyboard input
-    71 2053 BD 92 20		        lda outputlabel,x               ; A = memory[outputlabel + X]        (load character at position X from text)
-    72 2056 20 6D 20		        jsr putchar                     ; CALL putchar                (putchar expects character value in A)
+    71 2053 BD B5 20		        lda outputlabel,x               ; A = memory[outputlabel + X]        (load character at position X from text)
+    72 2056 20 8A 20		        jsr putchar                     ; CALL putchar                (putchar expects character value in A)
     73 2059 E6 80		        inc character                   ; memory[$80] = memory[$80]+1 (advance loop index to next character)
     74 205B 4C 4D 20		        jmp next_label_ch               ; GOTO next_label_ch      (go back and print next character)
     75
     76 205E			double_the_value:
-    77 205E A5 82		        lda value
+    77 205E A5 82		        lda value                       ; a = memory[value]
     78 2060 85 81		        sta doubled                     ; STORE a in memory location 'doubled': memory[doubled] = a
     79 2062 18			        clc                             ; clear the carry flag
     80 2063 65 81		        adc doubled                     ; add the value in memory location 'doubled' to a: a = a + memory[doubled]
     81 				                                        ; (no # = read from memory address)
-    82 2065 69 30		        adc #offset_to_char             ; a = a + $30
-    83 				                                        ; (# so we use the literal value)
-    84 2067 20 6D 20		        jsr putchar                     ; print a
-    85
-    86 206A			stop:
-    87 206A 4C 6A 20		        jmp stop        ; GOTO stop                   (infinite loop = program halts here)
-    88
-    89 				; =====================================================================
-    90 				; PUTCHAR SUBROUTINE
-    91 				; prints the character whose ATASCII value is in the A register
-    92 				; by jumping to the OS print routine via stack manipulation
-    93 				; ON ENTRY: A must contain the ATASCII value of the character to print
-    94 				; ON EXIT:  A is preserved, character has been printed to screen
-    95 				; =====================================================================
-    96
-    97 206D			        .proc putchar
-    98 206D AA			        tax             ; X = A                       (save character from A into X because A is about to be clobbered)
-    99 206E AD 47 03		        lda putchar_ptr+1 ; A = memory[$347]          (load high byte of OS print routine address)
-   100 2071 48			        pha             ; push A onto stack            (high byte on stack, will be popped second by rts)
-   101 2072 AD 46 03		        lda putchar_ptr ; A = memory[$346]            (load low byte of OS print routine address)
-   102 2075 48			        pha             ; push A onto stack            (low byte on stack, will be popped first by rts)
-   103 2076 8A			        txa             ; A = X                       (restore original character back into A because OS print routine expects character value in A)
-   104 2077 60			        rts             ; RETURN                      (pops OS address from stack and jumps there, OS prints character in A, then returns to main)
-   105 				        .endp           ; end of putchar procedure
-   106
-   107 2078			        .local text     ; declare local data block named "text"
-   108 2078 45 4E 54 45 52 20 +         .byte 'ENTER A NUMBER: ' ; raw ATASCII bytes for each character in the string
-   109 				        .endl           ; end of text data block
+    82 2065 C9 0A		        cmp #10                         ; test if A == 10
+    83 2067 90 18		        bcc print_one_digit             ; branch if less than 10 to print_one_digit
+    84
+    85 				; print two characters. we shall assume that the first digit is always '1'
+    86 2069 38			        sec                             ; set the carry flag - required for subtracting
+    87 206A E9 0A		        sbc #10                         ; a = a - 10
+    88 206C 85 81		        sta doubled                     ; memory[doubled] = a    //save the result
+    89 				        
+    90 				; print the character '1'
+    91 206E A9 01		        lda #1                          ; a = 1
+    92 2070 18			        clc                             ; clear carry flag
+    93 2071 69 30		        adc #offset_to_char             ; convert the digit in A to ATASCII
+    94 2073 20 8A 20		        jsr putchar
+    95
+    96 				; print the second digit
+    97 2076 A5 81		        lda doubled
+    98 2078 18			        clc
+    99 2079 69 30		        adc #offset_to_char
+   100 207B 20 8A 20		        jsr putchar
+   101
+   102 207E 4C 87 20		        jmp stop
+   103
+   104 				;print one digit
+   105 2081			print_one_digit:                                        
+   106 2081 18			        clc                             ; clear carry
+   107 2082 69 30		        adc #offset_to_char             ; a = a + $30
+   108 				                                        ; (# so we use the literal value)
+   109 2084 20 8A 20		        jsr putchar                     ; print a
    110
-   111 2088			        .local keytable
-   112 2088 32 1F 1E 1A 18 1D +         .byte $32,$1F,$1E,$1A,$18,$1D,$1B,$33,$35,$30
-   113 				        .endl
-   114
-   115 2092			        .local outputlabel
-   116 2092 44 4F 55 42 4C 45 +         .byte 'DOUBLED VALUE: '
-   117 				        .endl
-   118
-   119 				        .endp           ; end of main procedure
-   120
-   121 				; =====================================================================
-   122 				; ENTRY POINT
-   123 				; =====================================================================
-   124
-   125 02E0-02E1> 00 20		        run main        ; set Atari run address to main (auto-execute when program loads)
+   111 2087			stop:
+   112 2087 4C 87 20		        jmp stop        ; GOTO stop                   (infinite loop = program halts here)
+   113
+   114 				; =====================================================================
+   115 				; PUTCHAR SUBROUTINE
+   116 				; prints the character whose ATASCII value is in the A register
+   117 				; by jumping to the OS print routine via stack manipulation
+   118 				; ON ENTRY: A must contain the ATASCII value of the character to print
+   119 				; ON EXIT:  A is preserved, character has been printed to screen
+   120 				; =====================================================================
+   121
+   122 208A			        .proc putchar
+   123 208A AA			        tax             ; X = A                       (save character from A into X because A is about to be clobbered)
+   124 208B AD 47 03		        lda putchar_ptr+1 ; A = memory[$347]          (load high byte of OS print routine address)
+   125 208E 48			        pha             ; push A onto stack            (high byte on stack, will be popped second by rts)
+   126 208F AD 46 03		        lda putchar_ptr ; A = memory[$346]            (load low byte of OS print routine address)
+   127 2092 48			        pha             ; push A onto stack            (low byte on stack, will be popped first by rts)
+   128 2093 8A			        txa             ; A = X                       (restore original character back into A because OS print routine expects character value in A)
+   129 2094 60			        rts             ; RETURN                      (pops OS address from stack and jumps there, OS prints character in A, then returns to main)
+   130 				        .endp           ; end of putchar procedure
+   131
+   132 2095			        .local text     ; declare local data block named "text"
+   133 2095 45 4E 54 45 52 20 +         .byte 'ENTER A NUMBER (0-9): ' ; raw ATASCII bytes for each character in the string
+   134 				        .endl           ; end of text data block
+   135
+   136 20AB			        .local keytable
+   137 20AB 32 1F 1E 1A 18 1D +         .byte $32,$1F,$1E,$1A,$18,$1D,$1B,$33,$35,$30
+   138 				        .endl
+   139
+   140 20B5			        .local outputlabel
+   141 20B5 44 4F 55 42 4C 45 +         .byte 'DOUBLED VALUE: '
+   142 				        .endl
+   143
+   144 				        .endp           ; end of main procedure
+   145
+   146 				; =====================================================================
+   147 				; ENTRY POINT
+   148 				; =====================================================================
+   149
+   150 02E0-02E1> 00 20		        run main        ; set Atari run address to main (auto-execute when program loads)

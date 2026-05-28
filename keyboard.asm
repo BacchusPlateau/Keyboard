@@ -59,8 +59,8 @@ found:
         clc                             ; clear carry                                       
         adc #offset_to_char             ; convert to ATASCII by adding $30
         jsr putchar                     ; print the number pressed
-        mva #7 rowcrs                   ; memory[$54] = 6             (position cursor at row 6)
-        mva #10 colcrs                  ; memory[$55] = 11            (position cursor at column 11)
+        mva #7 rowcrs                   ; memory[$54] = 6             (position cursor at row 7)
+        mva #10 colcrs                  ; memory[$55] = 11            (position cursor at column 10)
 
 ; write the text label for the doubled value
         mva #0 character                ; reset our loop counter
@@ -74,11 +74,36 @@ next_label_ch:
         jmp next_label_ch               ; GOTO next_label_ch      (go back and print next character)
 
 double_the_value:
-        lda value
+        lda value                       ; a = memory[value]
         sta doubled                     ; STORE a in memory location 'doubled': memory[doubled] = a
         clc                             ; clear the carry flag
         adc doubled                     ; add the value in memory location 'doubled' to a: a = a + memory[doubled]
                                         ; (no # = read from memory address)
+        cmp #10                         ; test if A == 10
+        bcc print_one_digit             ; branch if less than 10 to print_one_digit
+
+; print two characters. we shall assume that the first digit is always '1'
+        sec                             ; set the carry flag - required for subtracting
+        sbc #10                         ; a = a - 10
+        sta doubled                     ; memory[doubled] = a    //save the result
+        
+; print the character '1'
+        lda #1                          ; a = 1
+        clc                             ; clear carry flag
+        adc #offset_to_char             ; convert the digit in A to ATASCII
+        jsr putchar
+
+; print the second digit
+        lda doubled
+        clc
+        adc #offset_to_char
+        jsr putchar
+
+        jmp stop
+
+;print one digit
+print_one_digit:                                        
+        clc                             ; clear carry
         adc #offset_to_char             ; a = a + $30
                                         ; (# so we use the literal value)
         jsr putchar                     ; print a
@@ -105,7 +130,7 @@ stop:
         .endp           ; end of putchar procedure
 
         .local text     ; declare local data block named "text"
-        .byte 'ENTER A NUMBER: ' ; raw ATASCII bytes for each character in the string
+        .byte 'ENTER A NUMBER (0-9): ' ; raw ATASCII bytes for each character in the string
         .endl           ; end of text data block
 
         .local keytable
